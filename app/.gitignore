@@ -1,0 +1,15 @@
+.git
+*.iml
+.gradle
+gradle.properties
+gradlew
+gradlew.bat
+local.properties
+.idea
+.DS_Store
+build
+captures
+gradle
+app/src/androidTest
+app/src/test
+/build
