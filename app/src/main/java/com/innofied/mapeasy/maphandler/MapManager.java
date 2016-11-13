@@ -6,6 +6,7 @@ import android.view.View;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.Marker;
+import com.innofied.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
 
 /**
  * Created by debanjan on 31/10/16.
@@ -19,7 +20,7 @@ public interface MapManager {
     }
     void setPaddingToMap(int left, int right, int top, int bottom);
     void makeMapready(GoogleMap map);
-    void setMyLocationEnabled(boolean isLocationEnabled);
+    void setMyLocationEnabled (boolean isLocationEnabled) throws LocationRequestNotEnabledException;
     void addMarkers(boolean showMandatory,boolean showWithMyPosition,@DrawableRes int icon, MapModel... mapModels);
     void clearMarkers();
     void setUserIcon(@DrawableRes int icon);

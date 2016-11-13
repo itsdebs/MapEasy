@@ -14,11 +14,14 @@ import android.view.View;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
+import com.google.android.gms.location.LocationSettingsStates;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -27,6 +30,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.innofied.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,6 +52,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     private View markerView = null;
     private Map<Marker, MapModel> markerMap;
+    private boolean isLocationRequestPossible;
     private
     @DrawableRes
     int userIcon;
@@ -89,9 +94,12 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     @Override
-    public void setMyLocationEnabled(boolean isLocationEnabled) {
+    public void setMyLocationEnabled(boolean isLocationEnabled) throws LocationRequestNotEnabledException{
         if (map == null)
             return;
+        if(!isLocationRequestPossible)
+            throw new LocationRequestNotEnabledException();
+        else
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
                 PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) !=
@@ -213,7 +221,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             return;
-        }
+        }googleApiConnectedCallbacks.clear();
         userLocation = LocationServices.FusedLocationApi.getLastLocation(
                 googleApiClient);
         userLatlng = new LatLng(userLocation.getLatitude(), userLocation.getLongitude());
@@ -223,6 +231,8 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 cb.onConnected(bundle);
             }
             googleApiConnectedCallbacks.clear();
+
+
         }
 
     }
@@ -237,7 +247,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
     }
 
-    protected void createLocationRequest() {
+    public void createLocationRequest(final ActivityCallback activityCallback) {
         LocationRequest mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(600);
         mLocationRequest.setFastestInterval(1000);
@@ -247,6 +257,31 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         PendingResult<LocationSettingsResult> result =
                 LocationServices.SettingsApi.checkLocationSettings(googleApiClient,
                         builder.build());
+        result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
+            @Override
+            public void onResult(LocationSettingsResult result) {
+                final Status status = result.getStatus();
+                final LocationSettingsStates locationSettingsStates = result.getLocationSettingsStates();
+                switch (status.getStatusCode()) {
+                    case LocationSettingsStatusCodes.SUCCESS:
+                        // All location settings are satisfied. The client can
+                        // initialize location requests here.
+                        isLocationRequestPossible = true;
+                        activityCallback.onLocationRequestSatisfied();
+                        break;
+                    case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                        // Location settings are not satisfied, but this can be fixed
+                        // by showing the user a dialog.
+                        activityCallback.onLocationSettingsNotSatisfied(status);
+                        break;
+                    case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                        // Location settings are not satisfied. However, we have no way
+                        // to fix the settings so we won't show the dialog.
+                        activityCallback.onLocationSettingsUnavialable();
+                        break;
+                }
+            }
+        });
     }
 
     @Override
@@ -260,6 +295,8 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     public interface ActivityCallback{
+        //call other methods
+        void onLocationRequestSatisfied();
         /*
         * Use the following code in activity
         * try {
@@ -274,8 +311,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
         * */
 
-
-
         void onLocationSettingsNotSatisfied(Status status);
+        void onLocationSettingsUnavialable();
     }
 }
