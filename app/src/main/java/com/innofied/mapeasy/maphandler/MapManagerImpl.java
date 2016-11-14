@@ -52,7 +52,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     private View markerView = null;
     private Map<Marker, MapModel> markerMap;
-    private boolean isLocationRequestPossible;
+    private boolean isLocationRequestPossible, showMarkerWindow = false;
     private
     @DrawableRes
     int userIcon;
@@ -152,6 +152,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                     .position(ll)
                     .icon(BitmapDescriptorFactory.fromResource(icon))
             );
+
             markerMap.put(mo, m);
         }
         if (userIcon <= 0) {
@@ -190,6 +191,11 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     @Override
+    public void showMarkerWindow(boolean show) {
+        showMarkerWindow = show;
+    }
+
+    @Override
     public void setMarkerWindowClickListener(MarkerWindowClickedListener markerWindowClickedListener) {
 
     }
@@ -206,14 +212,33 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     @Override
     public void gotoMyLocation(boolean isAnimate) {
-
+        gotoMyLocation(isAnimate, 0);
     }
 
     @Override
     public void gotoLocation(MapModel mapModel, boolean isAnimate) {
-
+        gotoLocation(mapModel, isAnimate, 0);
     }
 
+    @Override
+    public void gotoMyLocation(boolean isAnimate, float zoom) {
+        gotoLocation(userLatlng,isAnimate, zoom);
+    }
+
+    @Override
+    public void gotoLocation(MapModel mapModel, boolean isAnimate, float zoom) {
+        gotoLocation(new LatLng(mapModel.getLatitude(), mapModel.getLongitude()), isAnimate, zoom);
+    }
+
+    //set 0 as zoom level if not required
+    protected void gotoLocation(LatLng latLng, boolean isAnimate, float zoom){
+        CameraUpdate cu =zoom > 0? CameraUpdateFactory.newLatLngZoom(latLng,zoom):CameraUpdateFactory.newLatLng(latLng);
+        if(isAnimate){
+            map.animateCamera(cu);
+        }
+        else
+            map.moveCamera(cu);
+    }
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         if (ActivityCompat.checkSelfPermission(context,
@@ -313,5 +338,24 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
         void onLocationSettingsNotSatisfied(Status status);
         void onLocationSettingsUnavialable();
+    }
+    protected boolean onMarkerClickCompleted(){
+        return false;
+    }
+    protected boolean onMarkerClicked(Marker marker){
+        return onMarkerClicked(marker, markerMap.get(marker));
+    }
+    protected boolean onMarkerClicked(Marker marker, MapModel mapModel){
+        gotoLocation(mapModel, true);
+        return onMarkerClickCompleted();
+    }
+
+    private class MarkerClickListener implements GoogleMap.OnMarkerClickListener{
+
+        @Override
+        public boolean onMarkerClick(Marker marker) {
+
+            return onMarkerClick(marker);
+        }
     }
 }

@@ -25,6 +25,7 @@ public interface MapManager {
     void clearMarkers();
     void setUserIcon(@DrawableRes int icon);
     void setMarkerWindow(View view);
+    void showMarkerWindow(boolean show);
     void setMarkerWindowClickListener(MarkerWindowClickedListener markerClickListener);
     interface MarkerWindowClickedListener {
        void onMarkerClicked (Marker marker);
@@ -34,4 +35,6 @@ public interface MapManager {
     void drawPathBetween(@PathMode int mode, MapModel start, MapModel end, MapModel[] waypoints);
     void gotoMyLocation(boolean isAnimate);
     void gotoLocation(MapModel mapModel, boolean isAnimate);
+    void gotoMyLocation(boolean isAnimate, float zoom);
+    void gotoLocation(MapModel mapModel, boolean isAnimate, float zoom);
 }
