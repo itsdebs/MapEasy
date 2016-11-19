@@ -91,6 +91,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 .addApi(com.google.android.gms.location.LocationServices.API)
                 .build();
 
+
     }
 
     @Override
@@ -134,16 +135,16 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
     }
 
-    protected void addMarkersOnReady(boolean showonMapMandatory,
+    protected <T extends MapModel> void addMarkersOnReady(boolean showonMapMandatory,
                                      boolean showWithMyPosition, @DrawableRes int icon,
-                                     MapModel... mapModels){
+                                     T... mapModels){
         LatLngBounds.Builder builder = null;
         builder = new LatLngBounds.Builder();
         if (showWithMyPosition && userLatlng != null) {
             builder.include(userLatlng);
         }
 
-        for (MapModel m : mapModels) {
+        for (T m : mapModels) {
             LatLng ll = new LatLng(m.getLatitude(), m.getLongitude());
             if (showonMapMandatory) {
                 builder.include(ll);
@@ -151,6 +152,9 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
             Marker mo = map.addMarker(new MarkerOptions()
                     .position(ll)
                     .icon(BitmapDescriptorFactory.fromResource(icon))
+                    .title(getMarkerTitle(m))
+                    .snippet(getMarkerSnippet(m))
+                    .visible(getMarkerVisibility(m))
             );
 
             markerMap.put(mo, m);
@@ -167,6 +171,14 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
     }
 
+    protected <T extends MapModel> String getMarkerTitle(T mapModel){
+        return null;
+    }
+    protected <T extends MapModel> String getMarkerSnippet(T mapModel){
+        return null;
+    }protected <T extends MapModel> boolean getMarkerVisibility(T mapModel){
+        return true;
+    }
 
 
     @Override
@@ -339,6 +351,15 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         void onLocationSettingsNotSatisfied(Status status);
         void onLocationSettingsUnavialable();
     }
+    /*
+    *
+Returns
+
+    true if the listener has consumed the event (i.e., the default behavior should not occur);
+     false otherwise (i.e., the default behavior should occur).
+     The default behavior is for the camera to move to the marker and an info window to appear.
+
+*/
     protected boolean onMarkerClickCompleted(){
         return false;
     }

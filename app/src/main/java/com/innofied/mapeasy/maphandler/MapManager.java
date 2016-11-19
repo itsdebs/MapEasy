@@ -28,7 +28,8 @@ public interface MapManager {
     void showMarkerWindow(boolean show);
     void setMarkerWindowClickListener(MarkerWindowClickedListener markerClickListener);
     interface MarkerWindowClickedListener {
-       void onMarkerClicked (Marker marker);
+       void onMarkerWindowClicked (Marker marker);
+       void onMarkerWindowLongClicked (Marker marker);
     }
     //first one treated as begin and last one as destination
     void drawPathBetween(@PathMode int mode, MapModel... mapModels);
