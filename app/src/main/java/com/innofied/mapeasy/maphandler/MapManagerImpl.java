@@ -16,6 +16,7 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
@@ -50,6 +51,9 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     private LatLng userLatlng = null;
     private Location userLocation = null;
 
+    private long locationRequestInterval = 10000;
+    private long fastestLocationRequestInterval = 5000;
+
     private View markerView = null;
     private Map<Marker, MapModel> markerMap;
     private boolean isLocationRequestPossible, showMarkerWindow = false;
@@ -59,6 +63,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     private GoogleApiClient googleApiClient;
 
     private List<OnGoogleApiConnectedCallback> googleApiConnectedCallbacks;
+    private List<PositionCangedListener> positionCangedListeners;
 
     private boolean isGoogleApiClientReady;
 
@@ -66,6 +71,8 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         this.context = context;
         markerMap = new HashMap<>();
         googleApiConnectedCallbacks = new ArrayList<>();
+        positionCangedListeners = new ArrayList<>();
+
     }
 
     @Override
@@ -90,18 +97,17 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 .addOnConnectionFailedListener(this)
                 .addApi(com.google.android.gms.location.LocationServices.API)
                 .build();
-
+        map.setInfoWindowAdapter(new MarkerInfoWindowAdapter());
 
     }
 
     @Override
-    public void setMyLocationEnabled(boolean isLocationEnabled) throws LocationRequestNotEnabledException{
+    public void setMyLocationEnabled(boolean isLocationEnabled) throws LocationRequestNotEnabledException {
         if (map == null)
             return;
-        if(!isLocationRequestPossible)
+        if (!isLocationRequestPossible)
             throw new LocationRequestNotEnabledException();
-        else
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
+        else if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
                 PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) !=
                         PackageManager.PERMISSION_GRANTED) {
@@ -117,10 +123,9 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     public void addMarkers(final boolean showonMapMandatory,
                            final boolean showWithMyPosition, @DrawableRes final int icon,
                            final MapModel... mapModels) {
-        if(isGoogleApiClientReady()) {
+        if (isGoogleApiClientReady()) {
             addMarkersOnReady(showonMapMandatory, showWithMyPosition, icon, mapModels);
-        }
-        else {
+        } else {
             googleApiConnectedCallbacks.add(new OnGoogleApiConnectedCallback() {
                 @Override
                 public void onConnected(@Nullable Bundle bundle) {
@@ -136,8 +141,8 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     protected <T extends MapModel> void addMarkersOnReady(boolean showonMapMandatory,
-                                     boolean showWithMyPosition, @DrawableRes int icon,
-                                     T... mapModels){
+                                                          boolean showWithMyPosition, @DrawableRes int icon,
+                                                          T... mapModels) {
         LatLngBounds.Builder builder = null;
         builder = new LatLngBounds.Builder();
         if (showWithMyPosition && userLatlng != null) {
@@ -171,12 +176,15 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
     }
 
-    protected <T extends MapModel> String getMarkerTitle(T mapModel){
+    protected <T extends MapModel> String getMarkerTitle(T mapModel) {
         return null;
     }
-    protected <T extends MapModel> String getMarkerSnippet(T mapModel){
+
+    protected <T extends MapModel> String getMarkerSnippet(T mapModel) {
         return null;
-    }protected <T extends MapModel> boolean getMarkerVisibility(T mapModel){
+    }
+
+    protected <T extends MapModel> boolean getMarkerVisibility(T mapModel) {
         return true;
     }
 
@@ -213,6 +221,31 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     @Override
+    public void addPositionChangedListeners(PositionCangedListener positionCangedListener) {
+        positionCangedListeners.add(positionCangedListener);
+    }
+
+    @Override
+    public void clearPositionChangedListeners(PositionCangedListener positionCangedListener) {
+        positionCangedListeners.remove(positionCangedListener);
+    }
+
+    @Override
+    public void clearAllPositionChangedListeners() {
+        positionCangedListeners.clear();
+    }
+
+    @Override
+    public void setIntervalforLocationRequest(long interval) {
+        locationRequestInterval = interval;
+    }
+
+    @Override
+    public void setFastestIntervalforLocationRequest(long interval) {
+        fastestLocationRequestInterval = interval;
+    }
+
+    @Override
     public void drawPathBetween(@PathMode int mode, MapModel... mapModels) {
 
     }
@@ -234,7 +267,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     @Override
     public void gotoMyLocation(boolean isAnimate, float zoom) {
-        gotoLocation(userLatlng,isAnimate, zoom);
+        gotoLocation(userLatlng, isAnimate, zoom);
     }
 
     @Override
@@ -243,14 +276,14 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     //set 0 as zoom level if not required
-    protected void gotoLocation(LatLng latLng, boolean isAnimate, float zoom){
-        CameraUpdate cu =zoom > 0? CameraUpdateFactory.newLatLngZoom(latLng,zoom):CameraUpdateFactory.newLatLng(latLng);
-        if(isAnimate){
+    protected void gotoLocation(LatLng latLng, boolean isAnimate, float zoom) {
+        CameraUpdate cu = zoom > 0 ? CameraUpdateFactory.newLatLngZoom(latLng, zoom) : CameraUpdateFactory.newLatLng(latLng);
+        if (isAnimate) {
             map.animateCamera(cu);
-        }
-        else
+        } else
             map.moveCamera(cu);
     }
+
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         if (ActivityCompat.checkSelfPermission(context,
@@ -258,13 +291,15 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             return;
-        }googleApiConnectedCallbacks.clear();
+        }
+        startLocationUpdates();
+        googleApiConnectedCallbacks.clear();
         userLocation = LocationServices.FusedLocationApi.getLastLocation(
                 googleApiClient);
         userLatlng = new LatLng(userLocation.getLatitude(), userLocation.getLongitude());
 
-        if(googleApiConnectedCallbacks != null && !googleApiConnectedCallbacks.isEmpty()){
-            for (OnGoogleApiConnectedCallback cb: googleApiConnectedCallbacks) {
+        if (googleApiConnectedCallbacks != null && !googleApiConnectedCallbacks.isEmpty()) {
+            for (OnGoogleApiConnectedCallback cb : googleApiConnectedCallbacks) {
                 cb.onConnected(bundle);
             }
             googleApiConnectedCallbacks.clear();
@@ -273,7 +308,30 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
 
     }
+    protected void onLocationUpdated(Location location){
+        userLocation = location;
+        for (PositionCangedListener pcl: positionCangedListeners) {
+            pcl.onPositionChanged();
 
+        }
+    }
+    protected LocationRequest createLocationRequest() {
+        LocationRequest mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(locationRequestInterval);
+        mLocationRequest.setFastestInterval(fastestLocationRequestInterval);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        return mLocationRequest;
+    }
+
+    protected void startLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission
+                (context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        LocationServices.FusedLocationApi.requestLocationUpdates(
+                googleApiClient, createLocationRequest(), new LocationChangeListener());
+    }
     @Override
     public void onConnectionSuspended(int cause) {
         if(googleApiConnectedCallbacks != null && !googleApiConnectedCallbacks.isEmpty()){
@@ -283,7 +341,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
             googleApiConnectedCallbacks.clear();
         }
     }
-
+//call this before setting your locattion or calling other api
     public void createLocationRequest(final ActivityCallback activityCallback) {
         LocationRequest mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(600);
@@ -377,6 +435,27 @@ Returns
         public boolean onMarkerClick(Marker marker) {
 
             return onMarkerClick(marker);
+        }
+    }
+
+    private class MarkerInfoWindowAdapter implements GoogleMap.InfoWindowAdapter{
+
+        @Override
+        public View getInfoWindow(Marker marker) {
+            return null;
+        }
+
+        @Override
+        public View getInfoContents(Marker marker) {
+            return null;
+        }
+    }
+
+    private class LocationChangeListener implements LocationListener{
+
+        @Override
+        public void onLocationChanged(Location location) {
+            onLocationUpdated(location);
         }
     }
 }

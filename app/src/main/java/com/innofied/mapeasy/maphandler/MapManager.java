@@ -31,6 +31,28 @@ public interface MapManager {
        void onMarkerWindowClicked (Marker marker);
        void onMarkerWindowLongClicked (Marker marker);
     }
+
+    interface PositionCangedListener{
+        //specify the distance in metres you want method onPositionChanged(int metres) to be called.
+        // onPositionChanged() will be called everytime position changes
+        //return 0 if not required
+//        float getCallbackDistance();
+        void onPositionChanged();
+        //whenever the position changes by or more than the specified distance,from the point where the method was last called,
+        // this is to be called
+        //not called if callback distance is 0
+
+//        void onPositionChanged(float metres);
+    }
+    //add position changed listener
+
+    void addPositionChangedListeners(PositionCangedListener positionCangedListener);
+    void clearPositionChangedListeners(PositionCangedListener positionCangedListener);
+    void clearAllPositionChangedListeners();
+
+    void setIntervalforLocationRequest(long interval);
+    void setFastestIntervalforLocationRequest(long interval);
+
     //first one treated as begin and last one as destination
     void drawPathBetween(@PathMode int mode, MapModel... mapModels);
     void drawPathBetween(@PathMode int mode, MapModel start, MapModel end, MapModel[] waypoints);
