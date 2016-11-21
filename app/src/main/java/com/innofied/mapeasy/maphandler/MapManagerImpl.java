@@ -27,6 +27,7 @@ import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
@@ -98,7 +99,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 .addApi(com.google.android.gms.location.LocationServices.API)
                 .build();
         map.setInfoWindowAdapter(new MarkerInfoWindowAdapter());
-
+        map.setOnCameraMoveListener(new CameraMoveListener());
     }
 
     @Override
@@ -424,6 +425,12 @@ Returns
     protected boolean onMarkerClicked(Marker marker){
         return onMarkerClicked(marker, markerMap.get(marker));
     }
+    private void onCameraMoved(){
+        onCameraMoved(map.getCameraPosition());
+    }
+    protected void onCameraMoved(CameraPosition cameraPosition){
+
+    }
     protected boolean onMarkerClicked(Marker marker, MapModel mapModel){
         gotoLocation(mapModel, true);
         return onMarkerClickCompleted();
@@ -456,6 +463,13 @@ Returns
         @Override
         public void onLocationChanged(Location location) {
             onLocationUpdated(location);
+        }
+    }
+    private class CameraMoveListener implements GoogleMap.OnCameraMoveListener{
+
+        @Override
+        public void onCameraMove() {
+
         }
     }
 }
