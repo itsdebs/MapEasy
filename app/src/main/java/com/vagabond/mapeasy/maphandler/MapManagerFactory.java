@@ -1,4 +1,4 @@
-package com.innofied.mapeasy.maphandler;
+package com.vagabond.mapeasy.maphandler;
 
 /**
  * Created by debanjan on 8/11/16.

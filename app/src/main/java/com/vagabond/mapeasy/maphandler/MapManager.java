@@ -1,4 +1,4 @@
-package com.innofied.mapeasy.maphandler;
+package com.vagabond.mapeasy.maphandler;
 
 import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
@@ -6,7 +6,7 @@ import android.view.View;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.Marker;
-import com.innofied.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
+import com.vagabond.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
 
 /**
  * Created by debanjan on 31/10/16.
@@ -31,6 +31,12 @@ public interface MapManager {
        void onMarkerWindowClicked (Marker marker);
        void onMarkerWindowLongClicked (Marker marker);
     }
+    interface CameraPositionChangedListener{
+        void onCameraPositionChanged(double prevLat, double prevLng, double latNow, double lngNow, double displacement);
+    }
+    void addCameraPositionChangedListeners(CameraPositionChangedListener cameraPositionChangedListener);
+    void clearCameraPositionChangedListeners(CameraPositionChangedListener cameraPositionChangedListener);
+    void clearAllCameraPositionChangedListeners();
 
     interface PositionCangedListener{
         //specify the distance in metres you want method onPositionChanged(int metres) to be called.
@@ -44,6 +50,8 @@ public interface MapManager {
 
 //        void onPositionChanged(float metres);
     }
+
+
     //add position changed listener
 
     void addPositionChangedListeners(PositionCangedListener positionCangedListener);

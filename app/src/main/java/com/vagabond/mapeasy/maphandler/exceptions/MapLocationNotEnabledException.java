@@ -1,4 +1,4 @@
-package com.innofied.mapeasy.maphandler.exceptions;
+package com.vagabond.mapeasy.maphandler.exceptions;
 
 import android.os.Build;
 import android.support.annotation.RequiresApi;

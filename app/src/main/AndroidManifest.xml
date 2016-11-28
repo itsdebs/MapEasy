@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.innofied.mapeasy">
+    package="com.vagabond.mapeasy">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <application
@@ -13,14 +13,14 @@
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
 
-        <activity android:name=".MainActivity">
+        <activity android:name="com.vagabond.mapeasy.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".Main2Activity"></activity>
+        <activity android:name="com.vagabond.mapeasy.Main2Activity"></activity>
     </application>
 
 </manifest>

@@ -1,4 +1,4 @@
-package com.innofied.mapeasy;
+package com.vagabond.mapeasy;
 
 import org.junit.Test;
 

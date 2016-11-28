@@ -1,4 +1,4 @@
-package com.innofied.mapeasy.maphandler;
+package com.vagabond.mapeasy.maphandler;
 
 import android.Manifest;
 import android.content.Context;
@@ -32,7 +32,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.innofied.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
+import com.vagabond.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,8 +63,11 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     int userIcon;
     private GoogleApiClient googleApiClient;
 
+    private CameraPosition prevCameraPosition;
+
     private List<OnGoogleApiConnectedCallback> googleApiConnectedCallbacks;
     private List<PositionCangedListener> positionCangedListeners;
+    private List<CameraPositionChangedListener> cameraPositionChangedListeners;
 
     private boolean isGoogleApiClientReady;
 
@@ -73,6 +76,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         markerMap = new HashMap<>();
         googleApiConnectedCallbacks = new ArrayList<>();
         positionCangedListeners = new ArrayList<>();
+        cameraPositionChangedListeners = new ArrayList<>();
 
     }
 
@@ -219,6 +223,21 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     @Override
     public void setMarkerWindowClickListener(MarkerWindowClickedListener markerWindowClickedListener) {
 
+    }
+
+    @Override
+    public void addCameraPositionChangedListeners(CameraPositionChangedListener cameraPositionChangedListener) {
+        cameraPositionChangedListeners.add(cameraPositionChangedListener);
+    }
+
+    @Override
+    public void clearCameraPositionChangedListeners(CameraPositionChangedListener cameraPositionChangedListener) {
+        cameraPositionChangedListeners.remove(cameraPositionChangedListener);
+    }
+
+    @Override
+    public void clearAllCameraPositionChangedListeners() {
+        cameraPositionChangedListeners.clear();
     }
 
     @Override
@@ -429,7 +448,11 @@ Returns
         onCameraMoved(map.getCameraPosition());
     }
     protected void onCameraMoved(CameraPosition cameraPosition){
-
+        if(cameraPositionChangedListeners != null){
+            for (CameraPositionChangedListener cpl:cameraPositionChangedListeners) {
+                //Todo
+            }
+        }
     }
     protected boolean onMarkerClicked(Marker marker, MapModel mapModel){
         gotoLocation(mapModel, true);
@@ -469,7 +492,7 @@ Returns
 
         @Override
         public void onCameraMove() {
-
+            onCameraMoved();
         }
     }
 }

@@ -1,4 +1,4 @@
-package com.innofied.mapeasy;
+package com.vagabond.mapeasy;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
