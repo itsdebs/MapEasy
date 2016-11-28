@@ -21,7 +21,7 @@ public class RoadDistance {
 //        this.context = context;
     }*/
 
-    public void getRoadDistance(double lat1, double lng1, double lat2, double lng2, RoadDistanceCallback callback){
+    public void getRoadDistanceAndTime(double lat1, double lng1, double lat2, double lng2, RoadDistanceAndTimeCallback callback){
         String url = "https://maps.google.com/maps/api/directions/json?" +
                 "origin=" + lat1 +"," + lng1 +
                 "&destination=" + lat2 + "," + lng2 +
@@ -30,11 +30,11 @@ public class RoadDistance {
     }
 
 
-    private class ConnectAsyncTask extends AsyncTask<Void, Void, Distance> {
+    private class ConnectAsyncTask extends AsyncTask<Void, Void, DistanceAndTime> {
         String url;
-        RoadDistanceCallback callback;
+        RoadDistanceAndTimeCallback callback;
 
-        public ConnectAsyncTask(RoadDistanceCallback callback, String url) {
+        public ConnectAsyncTask(RoadDistanceAndTimeCallback callback, String url) {
             this.callback = callback;
             this.url = url;
         }
@@ -46,40 +46,56 @@ public class RoadDistance {
 
         }
         @Override
-        protected Distance doInBackground(Void... params) {
+        protected DistanceAndTime doInBackground(Void... params) {
             JsonParser jParser = new JsonParser();
             String json = jParser.getJSONFromUrl(url);
             com.google.gson.JsonParser parser = new com.google.gson.JsonParser();
             JsonElement el = parser.parse(json);
-            Distance d = new Distance();
+            DistanceAndTime d = new DistanceAndTime();
             JsonObject jObj = el.getAsJsonObject()
                     .get("routes").getAsJsonArray()
                     .get(0).getAsJsonObject().
                             getAsJsonArray("legs")
-                    .get(0).getAsJsonObject()
-                    .getAsJsonObject("distance");
-            d.text = jObj
+                    .get(0).getAsJsonObject();
+            JsonObject distObj =jObj.getAsJsonObject("distance");
+            d.distText = distObj
                     .get("text")
-//                    .get("value"); for getting distance in metres
+//                    .get("distValue"); for getting distance in metres
                     .getAsString();
-            d.value = jObj
+            d.distValue = distObj
+                    .get("value")
+                    .getAsFloat();
+            JsonObject timeObj =jObj.getAsJsonObject("duration");
+            d.timeText = timeObj
+                    .get("text")
+//                    .get("distValue"); for getting distance in metres
+                    .getAsString();
+            d.timeValue = timeObj //seconds
                     .get("value")
                     .getAsFloat();
             return d;
         }
         @Override
-        protected void onPostExecute(Distance result) {
+        protected void onPostExecute(DistanceAndTime result) {
             if(callback != null)
                 callback.onRoadDistanceCalculated(result);
         }
     }
-
-    public class Distance{
-        public String text;
-        public float value;
+/*
+eg:
+* "duration" : {
+                  "text" : "46 mins",
+                  "value" : 2769
+               }
+* */
+    public class DistanceAndTime {
+        public String distText;
+        public float distValue;
+        public String timeText;
+        public float timeValue;
     }
 
-    public interface RoadDistanceCallback{
-        void onRoadDistanceCalculated(Distance distance);
+    public interface RoadDistanceAndTimeCallback {
+        void onRoadDistanceCalculated(DistanceAndTime distance);
     }
 }
