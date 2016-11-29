@@ -2,6 +2,7 @@ package com.vagabond.mapeasy.maphandler;
 
 import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
+import android.support.annotation.Nullable;
 import android.view.View;
 
 import com.google.android.gms.maps.GoogleMap;
@@ -62,10 +63,15 @@ public interface MapManager {
     void setFastestIntervalforLocationRequest(long interval);
 
     //first one treated as begin and last one as destination
-    void drawPathBetween(@PathMode int mode, MapModel... mapModels);
-    void drawPathBetween(@PathMode int mode, MapModel start, MapModel end, MapModel[] waypoints);
+    void drawPathBetween(@PathMode int mode, @Nullable String pathColor, MapModel... mapModels);
+    void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor, MapModel end, MapModel[] waypoints);
+    void drawPathBetween(@PathMode int mode, @Nullable String pathColor,int pathWidth, MapModel... mapModels);
+    void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor, int pathWidth,MapModel end, MapModel[] waypoints);
+    //hexadecimal code. Default is google map blue.
     void gotoMyLocation(boolean isAnimate);
     void gotoLocation(MapModel mapModel, boolean isAnimate);
     void gotoMyLocation(boolean isAnimate, float zoom);
     void gotoLocation(MapModel mapModel, boolean isAnimate, float zoom);
+
+
 }

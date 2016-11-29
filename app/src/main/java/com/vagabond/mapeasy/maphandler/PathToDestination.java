@@ -33,7 +33,7 @@ class PathToDestination {
     private static final String API_KEY = "AIzaSyB34zbuvnUfYKmczJZXZ5yHJ2O-kO39VvI";
 
     private String pathColor = "#05b1fb";//default blue color
-
+    private int pathWidth = 5;//default is 5
     public PathToDestination(Context context, GoogleMap mMap) {
         this.context = context;
         this.mMap = mMap;
@@ -41,6 +41,10 @@ class PathToDestination {
 
     public void setPathColor(String pathColor) {
         this.pathColor = pathColor;
+    }
+
+    public void setPathWidth(int pathWidth) {
+        this.pathWidth = pathWidth;
     }
 
     public void drawPathBetween(double sourcelat, double sourcelog, double destlat, double destlog) {
@@ -56,7 +60,7 @@ class PathToDestination {
         return makeURL(sourcelat, sourcelog, destlat, destlog, null);
     }
 
-    private String makeURL(double sourcelat, double sourcelog, double destlat, double destlog, MapModel[] waypoints) {
+    private String makeURL(double sourcelat, double sourcelog, double destlat, double destlog, MapModel... waypoints) {
         StringBuilder urlString = new StringBuilder();
         urlString.append("https://maps.googleapis.com/maps/api/directions/json");
         urlString.append("?origin=");// from
@@ -96,7 +100,7 @@ class PathToDestination {
             List<LatLng> list = decodePoly(encodedString);
             Polyline line = mMap.addPolyline(new PolylineOptions()
                     .addAll(list)
-                    .width(5)
+                    .width(pathWidth)
                     .color(Color.parseColor(pathColor))//Google maps blue color
                     .geodesic(true)
             );

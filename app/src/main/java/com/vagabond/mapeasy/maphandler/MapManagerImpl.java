@@ -35,6 +35,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.vagabond.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,8 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     private GoogleMap map;
     private int leftPad = 0, rightPad = 0, topPad = 0, bottomPad = 0;
     private Context context;
+
+    private PathToDestination pathToDestination;
 
     private LatLng userLatlng = null;
     private Location userLocation = null;
@@ -78,6 +81,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         positionCangedListeners = new ArrayList<>();
         cameraPositionChangedListeners = new ArrayList<>();
 
+
     }
 
     @Override
@@ -104,6 +108,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 .build();
         map.setInfoWindowAdapter(new MarkerInfoWindowAdapter());
         map.setOnCameraMoveListener(new CameraMoveListener());
+        pathToDestination = new PathToDestination(context, map);
     }
 
     @Override
@@ -266,14 +271,42 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     @Override
-    public void drawPathBetween(@PathMode int mode, MapModel... mapModels) {
+    public void drawPathBetween(@PathMode int mode, @Nullable String pathColor, MapModel... mapModels) {
+        drawPathBetween(mode, pathColor, -1, mapModels);
+    }
+
+    @Override
+    public void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor,
+                                MapModel end, MapModel[] waypoints) {
+        drawPathBetween(mode,start, pathColor,-1, end, waypoints);
+    }
+
+    @Override
+    public void drawPathBetween(@PathMode int mode, @Nullable String pathColor, int pathWidth, MapModel... mapModels) {
+        if(mapModels.length < 2)
+            return;
+        MapModel start = mapModels[0];
+        MapModel end = mapModels[mapModels.length - 1];
+        drawPathBetween(mode,start, pathColor, pathWidth, end, Arrays.copyOfRange(mapModels, 1, mapModels.length));
 
     }
 
     @Override
-    public void drawPathBetween(@PathMode int mode, MapModel start, MapModel end, MapModel[] waypoints) {
-
+    public void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor, int pathWidth,
+                                MapModel end, MapModel[] waypoints) {
+        if(pathToDestination == null)
+            return;
+        if (pathColor != null){
+            pathToDestination.setPathColor(pathColor);
+        }
+        if(pathWidth > 0){
+            pathToDestination.setPathWidth(pathWidth);
+        }
+        pathToDestination.drawPathBetween(start.getLatitude(),start.getLongitude(), end.getLatitude(),
+                end.getLongitude(), waypoints);
     }
+
+
 
     @Override
     public void gotoMyLocation(boolean isAnimate) {
@@ -449,10 +482,15 @@ Returns
     }
     protected void onCameraMoved(CameraPosition cameraPosition){
         if(cameraPositionChangedListeners != null){
+            double dist = 0;
+            if(prevCameraPosition != null){
+//                dist = cameraPosition.target.
+            }
             for (CameraPositionChangedListener cpl:cameraPositionChangedListeners) {
-                //Todo
+
             }
         }
+
     }
     protected boolean onMarkerClicked(Marker marker, MapModel mapModel){
         gotoLocation(mapModel, true);
