@@ -66,7 +66,8 @@ public interface MapManager {
     void drawPathBetween(@PathMode int mode, @Nullable String pathColor, MapModel... mapModels);
     void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor, MapModel end, MapModel[] waypoints);
     void drawPathBetween(@PathMode int mode, @Nullable String pathColor,int pathWidth, MapModel... mapModels);
-    void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor, int pathWidth,MapModel end, MapModel[] waypoints);
+    void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor, int pathWidth,
+                         MapModel end, MapModel[] waypoints);
     //hexadecimal code. Default is google map blue.
     void gotoMyLocation(boolean isAnimate);
     void gotoLocation(MapModel mapModel, boolean isAnimate);

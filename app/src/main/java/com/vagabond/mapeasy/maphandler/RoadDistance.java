@@ -21,7 +21,8 @@ public class RoadDistance {
 //        this.context = context;
     }*/
 
-    public void getRoadDistanceAndTime(double lat1, double lng1, double lat2, double lng2, RoadDistanceAndTimeCallback callback){
+    public void getRoadDistanceAndTime(double lat1, double lng1, double lat2, double lng2,
+                                       RoadDistanceAndTimeCallback callback){
         String url = "https://maps.google.com/maps/api/directions/json?" +
                 "origin=" + lat1 +"," + lng1 +
                 "&destination=" + lat2 + "," + lng2 +
