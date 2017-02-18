@@ -1,4 +1,4 @@
-package com.vagabond.mapeasy.maphandler;
+package com.vagabond.mapeasy.maphandler.helper;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -10,6 +10,8 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.vagabond.mapeasy.maphandler.MapManager;
+import com.vagabond.mapeasy.maphandler.model.MapModel;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -26,14 +28,21 @@ import java.util.List;
 /**
  * Created by Debanjan on 8/1/16.
  */
-class PathToDestination {
+public class PathToDestination {
 
     private GoogleMap mMap;
     private Context context;
+//    private static final String API_KEY = "AIzaSyALn_Kt5eTQLldYS8WcaR6CXZ7-dRKqFWE";
+
     private static final String API_KEY = "AIzaSyB34zbuvnUfYKmczJZXZ5yHJ2O-kO39VvI";
+    //private static final String API_KEY = "AIzaSyALn_Kt5eTQLldYS8WcaR6CXZ7-dRKqFWE";
+//    private static final String API_KEY = "AIzaSyC9l1aldFjI8_3TpY6dVNOgR43tZgk6Np4";
 
     private String pathColor = "#05b1fb";//default blue color
     private int pathWidth = 5;//default is 5
+    private Polyline line;
+    private PolylineOptions polylineOptions;
+
     public PathToDestination(Context context, GoogleMap mMap) {
         this.context = context;
         this.mMap = mMap;
@@ -47,20 +56,20 @@ class PathToDestination {
         this.pathWidth = pathWidth;
     }
 
-    public void drawPathBetween(double sourcelat, double sourcelog, double destlat, double destlog) {
-        drawPathBetween(sourcelat, sourcelog, destlat, destlog, null);
+    public void drawPathBetween(@MapManager.PathMode int mode, double sourcelat, double sourcelog, double destlat, double destlog) {
+        drawPathBetween(mode, sourcelat, sourcelog, destlat, destlog, null);
     }
 
-    public void drawPathBetween(double sourcelat, double sourcelog, double destlat, double destlog, MapModel[] waypoints) {
-        String urlStr = makeURL(sourcelat, sourcelog, destlat, destlog, waypoints);
+    public void drawPathBetween(@MapManager.PathMode int mode, double sourcelat, double sourcelog, double destlat, double destlog, MapModel[] waypoints) {
+        String urlStr = makeURL(mode, sourcelat, sourcelog, destlat, destlog, waypoints);
         new ConnectAsyncTask(urlStr).execute();
     }
 
-    private String makeURL(double sourcelat, double sourcelog, double destlat, double destlog) {
-        return makeURL(sourcelat, sourcelog, destlat, destlog, null);
-    }
+    /*private String makeURL(double sourcelat, double sourcelog, double destlat, double destlog) {
+        return makeURL(sourcelat, sourcelog, destlat, destlog, );
+    }*/
 
-    private String makeURL(double sourcelat, double sourcelog, double destlat, double destlog, MapModel... waypoints) {
+    private String makeURL(@MapManager.PathMode int mode, double sourcelat, double sourcelog, double destlat, double destlog, MapModel... waypoints) {
         StringBuilder urlString = new StringBuilder();
         urlString.append("https://maps.googleapis.com/maps/api/directions/json");
         urlString.append("?origin=");// from
@@ -83,7 +92,9 @@ class PathToDestination {
         urlString.append(Double.toString(destlat));
         urlString.append(",");
         urlString.append(Double.toString(destlog));
-        urlString.append("&sensor=false&mode=walking&alternatives=true");
+        urlString.append("&sensor=false");
+        urlString.append("&mode=" + mode);
+        urlString.append("&alternatives=true");
         urlString.append("&key=" + API_KEY);
         return urlString.toString();
     }
@@ -97,13 +108,23 @@ class PathToDestination {
             JSONObject routes = routeArray.getJSONObject(0);
             JSONObject overviewPolylines = routes.getJSONObject("overview_polyline");
             String encodedString = overviewPolylines.getString("points");
-            List<LatLng> list = decodePoly(encodedString);
-            Polyline line = mMap.addPolyline(new PolylineOptions()
-                    .addAll(list)
-                    .width(pathWidth)
-                    .color(Color.parseColor(pathColor))//Google maps blue color
-                    .geodesic(true)
-            );
+            List<LatLng> list = null;
+
+            if (polylineOptions == null) {
+                polylineOptions = new PolylineOptions()
+                        .width(pathWidth)
+                        .color(Color.parseColor(pathColor)) //Google maps blue color
+                        .geodesic(true);
+            }
+
+            list = decodePoly(encodedString);
+            polylineOptions.addAll(list);
+
+            if (line == null) {
+                line = mMap.addPolyline(polylineOptions);
+            }
+
+            line.setPoints(list);
            /*
            for(int z = 0; z<list.size()-1;z++){
                 LatLng src= list.get(z);
@@ -246,6 +267,14 @@ class PathToDestination {
                 drawPath(result);
             }
         }
+    }
+
+    public void clearRoute() {
+        if (line != null) {
+            line.remove();
+        }
+        line = null;
+        polylineOptions = null;
     }
 
 }

@@ -3,6 +3,7 @@ package com.vagabond.mapeasy.maphandler;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Point;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.DrawableRes;
@@ -26,17 +27,24 @@ import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.Projection;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.VisibleRegion;
 import com.vagabond.mapeasy.maphandler.exceptions.LocationRequestNotEnabledException;
+import com.vagabond.mapeasy.maphandler.helper.PathToDestination;
+import com.vagabond.mapeasy.maphandler.model.MapModel;
+import com.vagabond.mapeasy.maphandler.model.MapModelAlti;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -50,20 +58,20 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     private int leftPad = 0, rightPad = 0, topPad = 0, bottomPad = 0;
     private Context context;
 
-    private PathToDestination pathToDestination;
 
     private LatLng userLatlng = null;
     private Location userLocation = null;
-
+    private float defaultZoom = 18.0f;
+    private float maxZoomLevel = 18.0f;
     private long locationRequestInterval = 10000;
-    private long fastestLocationRequestInterval = 5000;
+    private long fastestLocationRequestInterval = 10000;
 
-    private View markerView = null;
     private Map<Marker, MapModel> markerMap;
     private boolean isLocationRequestPossible, showMarkerWindow = false;
     private
     @DrawableRes
-    int userIcon;
+    int userIcon = 0;
+    private MyLocation myLocation;
     private GoogleApiClient googleApiClient;
 
     private CameraPosition prevCameraPosition;
@@ -74,7 +82,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     private boolean isGoogleApiClientReady;
 
-    MapManagerImpl(Context context) {
+    public MapManagerImpl(Context context) {
         this.context = context;
         markerMap = new HashMap<>();
         googleApiConnectedCallbacks = new ArrayList<>();
@@ -108,7 +116,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                 .build();
         map.setInfoWindowAdapter(new MarkerInfoWindowAdapter());
         map.setOnCameraMoveListener(new CameraMoveListener());
-        pathToDestination = new PathToDestination(context, map);
+        map.setOnCameraIdleListener(new CameraIdleListener());
     }
 
     @Override
@@ -150,11 +158,59 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
     }
 
-    protected <T extends MapModel> void addMarkersOnReady(boolean showonMapMandatory,
-                                                          boolean showWithMyPosition, @DrawableRes int icon,
-                                                          T... mapModels) {
-        LatLngBounds.Builder builder = null;
-        builder = new LatLngBounds.Builder();
+    @Override
+    public synchronized <T extends MapModel>  void  removeMarkers(Collection<T> mapModels) {
+        Iterator<Map.Entry<Marker, MapModel>> it = markerMap.entrySet().iterator();
+        while (it.hasNext()){
+            Map.Entry<Marker, MapModel> entry = it.next();
+            try {
+                if ( mapModels.contains(entry.getValue())) {
+                    entry.getKey().remove();
+//                markerMap.remove(entry.getKey());
+                    mapModels.remove(entry.getValue());
+                    it.remove();
+
+                }
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    @Override
+    public synchronized boolean moveMarker(MapModel mapModel, double lat, double lng) {
+        Iterator<Map.Entry<Marker, MapModel>> it = markerMap.entrySet().iterator();
+        while (it.hasNext()){
+            Map.Entry<Marker, MapModel> entry = it.next();
+            if(mapModel.equals(entry.getValue())){
+                entry.getKey().setPosition(new LatLng(lat,lng));
+                entry.setValue(mapModel);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean rotateMarker(MapModel mapModel, float degs) {
+
+        Iterator<Map.Entry<Marker, MapModel>> it = markerMap.entrySet().iterator();
+        while (it.hasNext()){
+            Map.Entry<Marker, MapModel> entry = it.next();
+            if(mapModel.equals(entry.getValue())){
+                entry.getKey().setRotation(degs);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SafeVarargs
+    protected synchronized final <T extends MapModel> void addMarkersOnReady(boolean showonMapMandatory,
+                                                                             boolean showWithMyPosition, @DrawableRes int icon,
+                                                                             T... mapModels) {
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
         if (showWithMyPosition && userLatlng != null) {
             builder.include(userLatlng);
         }
@@ -170,18 +226,21 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
                     .title(getMarkerTitle(m))
                     .snippet(getMarkerSnippet(m))
                     .visible(getMarkerVisibility(m))
+                    .flat(true)
             );
 
             markerMap.put(mo, m);
         }
-        if (userIcon <= 0) {
+        /*if (userIcon <= 0) {
             map.addMarker(new MarkerOptions()
                     .position(userLatlng).icon(BitmapDescriptorFactory.fromResource(userIcon)));
-        }
-        if (showonMapMandatory || showWithMyPosition) {
+        }*/
+        if ((showonMapMandatory || showWithMyPosition) && mapModels.length > 0) {
             LatLngBounds latLngBounds = builder.build();
+
             CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(latLngBounds, (int) (60
                     * context.getResources().getDisplayMetrics().density));
+
             moveOrAnimateCamera(cu);
         }
     }
@@ -201,6 +260,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     @Override
     public void clearMarkers() {
+
         map.clear();
         markerMap.clear();
     }
@@ -213,12 +273,20 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     @Override
     public void setUserIcon(@DrawableRes int icon) {
         userIcon = icon;
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        map.setMyLocationEnabled(false);
     }
 
     @Override
-    public void setMarkerWindow(View view) {
-        markerView = view;
+    public <T extends MapModel> void setMarkerWindow(View view, T mapModel) {
+
     }
+
+
 
     @Override
     public void showMarkerWindow(boolean show) {
@@ -228,6 +296,32 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     @Override
     public void setMarkerWindowClickListener(MarkerWindowClickedListener markerWindowClickedListener) {
 
+    }
+
+    @Nullable
+    @Override
+    public MapModel getCurrenrUserPos() {
+        if (userLocation == null) {
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
+                    PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission
+                    (context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+                return null;
+            }
+            userLocation = LocationServices.FusedLocationApi.getLastLocation(
+                    googleApiClient);
+        }
+        return userLocation == null? null: new MapModel() {
+            @Override
+            public double getLatitude() {
+                return userLocation.getLatitude();
+            }
+
+            @Override
+            public double getLongitude() {
+                return userLocation.getLongitude();
+            }
+        };
     }
 
     @Override
@@ -278,34 +372,35 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     @Override
     public void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor,
                                 MapModel end, MapModel[] waypoints) {
-        drawPathBetween(mode,start, pathColor,-1, end, waypoints);
+        drawPathBetween(mode, start, pathColor, -1, end, waypoints);
     }
 
     @Override
     public void drawPathBetween(@PathMode int mode, @Nullable String pathColor, int pathWidth, MapModel... mapModels) {
-        if(mapModels.length < 2)
+        if (mapModels.length < 2)
             return;
         MapModel start = mapModels[0];
         MapModel end = mapModels[mapModels.length - 1];
-        drawPathBetween(mode,start, pathColor, pathWidth, end, Arrays.copyOfRange(mapModels, 1, mapModels.length));
+        drawPathBetween(mode, start, pathColor, pathWidth, end, Arrays.copyOfRange(mapModels, 1, mapModels.length));
 
     }
 
     @Override
     public void drawPathBetween(@PathMode int mode, MapModel start, @Nullable String pathColor, int pathWidth,
                                 MapModel end, MapModel[] waypoints) {
-        if(pathToDestination == null)
+       PathToDestination pathToDestination = new PathToDestination(context, map);
+
+        if (pathToDestination == null)
             return;
-        if (pathColor != null){
+        if (pathColor != null) {
             pathToDestination.setPathColor(pathColor);
         }
-        if(pathWidth > 0){
+        if (pathWidth > 0) {
             pathToDestination.setPathWidth(pathWidth);
         }
-        pathToDestination.drawPathBetween(start.getLatitude(),start.getLongitude(), end.getLatitude(),
+        pathToDestination.drawPathBetween(mode, start.getLatitude(), start.getLongitude(), end.getLatitude(),
                 end.getLongitude(), waypoints);
     }
-
 
 
     @Override
@@ -330,11 +425,15 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     //set 0 as zoom level if not required
     protected void gotoLocation(LatLng latLng, boolean isAnimate, float zoom) {
-        CameraUpdate cu = zoom > 0 ? CameraUpdateFactory.newLatLngZoom(latLng, zoom) : CameraUpdateFactory.newLatLng(latLng);
-        if (isAnimate) {
-            map.animateCamera(cu);
-        } else
-            map.moveCamera(cu);
+        if (latLng != null) {
+            CameraUpdate cu = zoom > 0 ? CameraUpdateFactory.newLatLngZoom(latLng, zoom) : CameraUpdateFactory.newLatLng(latLng);
+            if (isAnimate) {
+                map.animateCamera(cu);
+            } else {
+                map.moveCamera(cu);
+            }
+//            onCameraMoved();
+        }
     }
 
     @Override
@@ -347,10 +446,11 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
         startLocationUpdates();
         googleApiConnectedCallbacks.clear();
-        userLocation = LocationServices.FusedLocationApi.getLastLocation(
+        /*userLocation = LocationServices.FusedLocationApi.getLastLocation(
                 googleApiClient);
-        userLatlng = new LatLng(userLocation.getLatitude(), userLocation.getLongitude());
-
+        if (userLocation != null)
+            userLatlng = new LatLng(userLocation.getLatitude(), userLocation.getLongitude());*/
+        isGoogleApiClientReady = true;
         if (googleApiConnectedCallbacks != null && !googleApiConnectedCallbacks.isEmpty()) {
             for (OnGoogleApiConnectedCallback cb : googleApiConnectedCallbacks) {
                 cb.onConnected(bundle);
@@ -361,11 +461,51 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         }
 
     }
-    protected void onLocationUpdated(Location location){
-        userLocation = location;
-        for (PositionCangedListener pcl: positionCangedListeners) {
-            pcl.onPositionChanged();
 
+    protected void onLocationUpdated(Location location) {
+        userLocation = location;
+        if (myLocation == null) {
+            myLocation = new MyLocation();
+        }
+        if (userLocation != null) {
+            userLatlng = new LatLng(userLocation.getLatitude(), userLocation.getLongitude());
+            myLocation.latitude = userLocation.getLatitude();
+            myLocation.longitude = userLocation.getLongitude();
+        }
+        if (userIcon > 0) {
+            if (myLocation != null) {
+                if (!moveMarker(myLocation, userLocation.getLatitude(), userLocation.getLongitude()))
+                    addMarkers(false, false, userIcon, myLocation);
+            }
+
+        }
+
+        for (int i = 0; i < positionCangedListeners.size(); i++) {
+            PositionCangedListener pcl = positionCangedListeners.get(i);
+            pcl.onPositionChanged(new MapModelAlti() {
+                @Override
+                public double getAltitude() {
+                    return userLocation.getAltitude();
+                }
+
+                @Override
+                public double getLatitude() {
+                    return userLocation.getLatitude();
+                }
+
+                @Override
+                public double getLongitude() {
+                    return userLocation.getLongitude();
+                }
+            });
+
+        }
+    }
+    @Override
+    public void stopLocationUpdates() {
+        if(googleApiClient != null) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(
+                    googleApiClient, locationChangeListener);
         }
     }
     protected LocationRequest createLocationRequest() {
@@ -375,7 +515,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         return mLocationRequest;
     }
-
+    private LocationChangeListener locationChangeListener = new LocationChangeListener();
     protected void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) !=
                 PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission
@@ -383,18 +523,22 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
             return;
         }
         LocationServices.FusedLocationApi.requestLocationUpdates(
-                googleApiClient, createLocationRequest(), new LocationChangeListener());
+                googleApiClient, createLocationRequest(), locationChangeListener);
     }
+
     @Override
     public void onConnectionSuspended(int cause) {
-        if(googleApiConnectedCallbacks != null && !googleApiConnectedCallbacks.isEmpty()){
-            for (OnGoogleApiConnectedCallback cb: googleApiConnectedCallbacks) {
+        isGoogleApiClientReady = false;
+        if (googleApiConnectedCallbacks != null && !googleApiConnectedCallbacks.isEmpty()) {
+            for (OnGoogleApiConnectedCallback cb : googleApiConnectedCallbacks) {
                 cb.onSuspended(cause);
             }
             googleApiConnectedCallbacks.clear();
         }
     }
-//call this before setting your locattion or calling other api
+
+    //call this before setting your locattion or calling other api
+    @Override
     public void createLocationRequest(final ActivityCallback activityCallback) {
         LocationRequest mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(600);
@@ -433,16 +577,112 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
     }
 
     @Override
+    public void googleAPIConnect() {
+        googleApiClient.connect();
+    }
+
+    @Override
+    public void showMyLocationOnMap() {
+        //map.clear();
+        // Setting position for the marker
+        if (userLatlng == null) {
+            PositionCangedListener pos = new PositionCangedListener() {
+                @Override
+                public void onPositionChanged(MapModel mapModel) {
+                    if (userLatlng != null) {
+                        gotoMyLocation(false, defaultZoom);
+                    }
+                    positionCangedListeners.remove(this);
+                }
+            };
+            addPositionChangedListeners(pos);
+        } else {
+            gotoMyLocation(false, 19.0f);
+        }
+    }
+
+    @Override
+    public double[] getMyLocation() {
+        return new double[]{userLatlng.latitude, userLatlng.longitude};
+    }
+
+    @Override
+    public MapModel getMapCenter() {
+        Projection projection = map.getProjection();
+        VisibleRegion visibleRegion = projection
+                .getVisibleRegion();
+
+        Point x = projection.toScreenLocation(
+                visibleRegion.farRight);
+
+        Point y = projection.toScreenLocation(
+                visibleRegion.nearLeft);
+
+        Point centerPoint = new Point(x.x / 2, y.y / 2);
+
+        final LatLng centerFromPoint = projection.fromScreenLocation(
+                centerPoint);
+        return new MapModel() {
+            @Override
+            public double getLatitude() {
+                return centerFromPoint.latitude;
+            }
+
+            @Override
+            public double getLongitude() {
+                return centerFromPoint.longitude;
+            }
+        };
+    }
+
+    @Override
+    public void includePointsInVisibleMap(boolean includeMe, MapModel... mapModels) {
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        if (includeMe && userLatlng != null) {
+            builder.include(userLatlng);
+        }
+
+        for (MapModel m : mapModels) {
+            LatLng ll = new LatLng(m.getLatitude(), m.getLongitude());
+            builder.include(ll);
+        }
+        /*if (userIcon <= 0) {
+            map.addMarker(new MarkerOptions()
+                    .position(userLatlng).icon(BitmapDescriptorFactory.fromResource(userIcon)));
+        }*/
+        if (includeMe || mapModels.length > 0) {
+            LatLngBounds latLngBounds = builder.build();
+
+            CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(latLngBounds, (int) (60
+                    * context.getResources().getDisplayMetrics().density));
+
+            moveOrAnimateCamera(cu);
+        }
+    }
+
+    private void addMarker(LatLng userLatlng, int drawable) {
+        MarkerOptions markerOptions = new MarkerOptions();
+
+        markerOptions.position(userLatlng);
+        // Setting custom icon for the marker
+        markerOptions.icon(BitmapDescriptorFactory.fromResource(drawable));
+        // Adding the marker to the map
+        map.addMarker(markerOptions);
+
+    }
+
+    @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
     }
 
-    protected interface OnGoogleApiConnectedCallback{
+    protected interface OnGoogleApiConnectedCallback {
         void onConnected(@Nullable Bundle bundle);
+
         void onSuspended(int cause);
     }
 
-    public interface ActivityCallback{
+    public interface ActivityCallback {
         //call other methods
         void onLocationRequestSatisfied();
         /*
@@ -460,8 +700,10 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
         * */
 
         void onLocationSettingsNotSatisfied(Status status);
+
         void onLocationSettingsUnavialable();
     }
+
     /*
     *
 Returns
@@ -471,56 +713,61 @@ Returns
      The default behavior is for the camera to move to the marker and an info window to appear.
 
 */
-    protected boolean onMarkerClickCompleted(){
+    protected boolean onMarkerClickCompleted() {
         return false;
     }
-    protected boolean onMarkerClicked(Marker marker){
+
+    protected boolean onMarkerClicked(Marker marker) {
         return onMarkerClicked(marker, markerMap.get(marker));
     }
-    private void onCameraMoved(){
+
+    private void onCameraMoved() {
         onCameraMoved(map.getCameraPosition());
     }
-    protected void onCameraMoved(CameraPosition cameraPosition){
-        if(cameraPositionChangedListeners != null){
+
+    protected void onCameraMoved(CameraPosition cameraPosition) {
+        if (cameraPositionChangedListeners != null) {
             double dist = 0;
             double prevLat = -1;
             double prevLng = -1;
             double newLat = cameraPosition.target.latitude;
             double newLng = cameraPosition.target.longitude;
-            if(prevCameraPosition != null){
+            if (prevCameraPosition != null) {
                 prevLat = prevCameraPosition.target.latitude;
                 prevLng = prevCameraPosition.target.longitude;
-                dist = distance(prevLat,prevLng ,newLat
+                dist = distance(prevLat, prevLng, newLat
                         , newLng);
             }
-            for (CameraPositionChangedListener cpl:cameraPositionChangedListeners) {
+            prevCameraPosition = cameraPosition;
+            for (CameraPositionChangedListener cpl : cameraPositionChangedListeners) {
                 cpl.onCameraPositionChanged(prevLat, prevLng, newLat, newLng, dist);
             }
         }
 
     }
-
-    protected double distance (double lat_a, double lng_a, double lat_b, double lng_b )
-    {
+    //metres
+    @Override
+    public double distance(double lat_a, double lng_a, double lat_b, double lng_b) {
         double earthRadius = 3958.75;
-        double latDiff = Math.toRadians(lat_b-lat_a);
-        double lngDiff = Math.toRadians(lng_b-lng_a);
-        double a = Math.sin(latDiff /2) * Math.sin(latDiff /2) +
+        double latDiff = Math.toRadians(lat_b - lat_a);
+        double lngDiff = Math.toRadians(lng_b - lng_a);
+        double a = Math.sin(latDiff / 2) * Math.sin(latDiff / 2) +
                 Math.cos(Math.toRadians(lat_a)) * Math.cos(Math.toRadians(lat_b)) *
-                        Math.sin(lngDiff /2) * Math.sin(lngDiff /2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        Math.sin(lngDiff / 2) * Math.sin(lngDiff / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         double distance = earthRadius * c;
 
         int meterConversion = 1609;
 
         return distance * meterConversion;
     }
-    protected boolean onMarkerClicked(Marker marker, MapModel mapModel){
+
+    protected boolean onMarkerClicked(Marker marker, MapModel mapModel) {
         gotoLocation(mapModel, true);
         return onMarkerClickCompleted();
     }
 
-    private class MarkerClickListener implements GoogleMap.OnMarkerClickListener{
+    private class MarkerClickListener implements GoogleMap.OnMarkerClickListener {
 
         @Override
         public boolean onMarkerClick(Marker marker) {
@@ -529,7 +776,7 @@ Returns
         }
     }
 
-    private class MarkerInfoWindowAdapter implements GoogleMap.InfoWindowAdapter{
+    private class MarkerInfoWindowAdapter implements GoogleMap.InfoWindowAdapter {
 
         @Override
         public View getInfoWindow(Marker marker) {
@@ -542,18 +789,46 @@ Returns
         }
     }
 
-    private class LocationChangeListener implements LocationListener{
+    private class LocationChangeListener implements LocationListener {
 
         @Override
         public void onLocationChanged(Location location) {
             onLocationUpdated(location);
         }
     }
-    private class CameraMoveListener implements GoogleMap.OnCameraMoveListener{
+
+    private class CameraMoveListener implements GoogleMap.OnCameraMoveListener {
 
         @Override
         public void onCameraMove() {
+        }
+    }
+
+    private class CameraIdleListener implements GoogleMap.OnCameraIdleListener {
+
+        @Override
+        public void onCameraIdle() {
             onCameraMoved();
+        }
+    }
+
+    // only one instance to be created
+    private class MyLocation implements MapModel {
+        double latitude, longitude;
+
+        @Override
+        public double getLatitude() {
+            return latitude;
+        }
+
+        @Override
+        public double getLongitude() {
+            return longitude;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof MyLocation;
         }
     }
 }

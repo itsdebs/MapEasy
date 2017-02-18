@@ -1,4 +1,4 @@
-package com.vagabond.mapeasy.maphandler;
+package com.vagabond.mapeasy.maphandler.helper;
 import android.os.AsyncTask;
 
 import com.google.gson.JsonElement;

@@ -1,4 +1,4 @@
-package com.vagabond.mapeasy.maphandler;
+package com.vagabond.mapeasy.maphandler.helper;
 
 import android.content.Context;
 import android.location.Address;

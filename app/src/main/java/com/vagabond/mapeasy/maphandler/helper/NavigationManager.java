@@ -1,4 +1,4 @@
-package com.vagabond.mapeasy.maphandler;
+package com.vagabond.mapeasy.maphandler.helper;
 
 /**
  * Created by debanjan on 29/11/16.

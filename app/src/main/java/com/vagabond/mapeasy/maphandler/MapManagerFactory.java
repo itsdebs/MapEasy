@@ -10,7 +10,7 @@ public class MapManagerFactory {
 //    private MapManagerFactory() {
 //    }
 
-    public MapManager create(Context context){
-        return new MapManagerImpl(context);
+    public <T extends MapManager> T create(T mapManager, Context context){
+        return (T) new MapManagerImpl(context);
     }
 }
