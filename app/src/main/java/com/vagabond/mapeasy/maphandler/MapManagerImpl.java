@@ -82,7 +82,7 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
     private boolean isGoogleApiClientReady;
 
-    public MapManagerImpl(Context context) {
+     protected MapManagerImpl(Context context) {
         this.context = context;
         markerMap = new HashMap<>();
         googleApiConnectedCallbacks = new ArrayList<>();
@@ -91,7 +91,12 @@ public class MapManagerImpl implements MapManager, GoogleApiClient.ConnectionCal
 
 
     }
-
+    static <T extends MapManager>  T  getInstance(Context context){
+        return new MapManagerImpl(context).getMe(context);
+    }
+    protected <T extends MapManager> T getMe(Context context){
+        return (T) new MapManagerImpl(context);
+    }
     @Override
     public void setPaddingToMap(int left, int right, int top, int bottom) {
         leftPad = left;
